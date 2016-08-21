@@ -12,12 +12,19 @@ import (
 func main() {
 	var err error
 	fd, _ := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
-	addr := syscall.SockaddrInet4{
-		Port: 0,
-		Addr: [4]byte{127, 0, 0, 1},
-	}
+	var random_port int = 0
 	p := pkt()
-	err = syscall.Sendto(fd, p, 0, &addr)
+	for {
+		if random_port > 65000 {
+			random_port = 0
+		}
+		addr := syscall.SockaddrInet4{
+			Port: random_port,
+			Addr: [4]byte{127, 0, 0, 1},
+		}
+		err = syscall.Sendto(fd, p, 0, &addr)
+		random_port++
+	}
 	if err != nil {
 		log.Fatal("Sendto:", err)
 	}
@@ -25,7 +32,7 @@ func main() {
 
 func pkt() []byte {
 	laddr := "127.0.0.1"
-	raddr := "127.0.0.1"
+	raddr := "192.168.33.10"
 	packet := TCPHeader{
 		Source:      0xaa47, // Random ephemeral port
 		Destination: 80,
@@ -47,7 +54,7 @@ func pkt() []byte {
 		TotalLen: 20, // 20 bytes for IP, 10 for ICMP
 		TTL:      64,
 		Protocol: 1, // ICMP
-		Dst:      net.IPv4(127, 0, 0, 1),
+		Dst:      net.IPv4(192, 168, 33, 10),
 		// ID, Src and Checksum will be set for us by the kernel
 	}
 	data := packet.Marshal()
