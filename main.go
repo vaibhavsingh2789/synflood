@@ -14,8 +14,11 @@ var random int = 0
 
 func main() {
 	var err error
-	fd, _ := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
-	var random_port int = 0
+	fd, socerr := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP)
+	if socerr != nil {
+		log.Fatal("socket error:", socerr)
+		os.Exit(-1)
+	}
 	if len(os.Args) < 3 {
 		usage()
 		os.Exit(0)
@@ -27,15 +30,11 @@ func main() {
 	}
 	for {
 		p := pkt(dst_ip, uint16(port))
-		if random_port > 65000 {
-			random_port = 0
-		}
 		addr := syscall.SockaddrInet4{
-			Port: random_port,
+			Port: int(port),
 			Addr: to4byte(dst_ip),
 		}
 		err = syscall.Sendto(fd, p, 0, &addr)
-		random_port++
 	}
 	if err != nil {
 		log.Fatal("Sendto:", err)
@@ -77,13 +76,24 @@ func pkt(dst_ip string, port uint16) []byte {
 		Options:     []TCPOption{},
 	}
 
+	s_parts := strings.Split(laddr, ".")
+	d_parts := strings.Split(raddr, ".")
+	s0, _ := strconv.Atoi(s_parts[0])
+	s1, _ := strconv.Atoi(s_parts[1])
+	s2, _ := strconv.Atoi(s_parts[2])
+	s3, _ := strconv.Atoi(s_parts[3])
+	d0, _ := strconv.Atoi(d_parts[0])
+	d1, _ := strconv.Atoi(d_parts[1])
+	d2, _ := strconv.Atoi(d_parts[2])
+	d3, _ := strconv.Atoi(d_parts[3])
 	h := Header{
 		Version:  4,
 		Len:      20,
 		TotalLen: 20, // 20 bytes for IP + tcp
 		TTL:      64,
 		Protocol: 6, // TCP
-		Dst:      net.IPv4(127, 0, 0, 1),
+		Dst:      net.IPv4(byte(d0), byte(d1), byte(d2), byte(d3)),
+		Src:      net.IPv4(byte(s0), byte(s1), byte(s2), byte(s3)),
 		// ID, Src and Checksum will be set for us by the kernel
 	}
 	data := packet.Marshal()
