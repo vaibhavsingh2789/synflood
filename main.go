@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 var random int = 0
@@ -29,6 +30,7 @@ func main() {
 		log.Fatal("Wrong port")
 	}
 	for {
+		time.Sleep(time.Second)
 		p := pkt(dst_ip, uint16(port))
 		addr := syscall.SockaddrInet4{
 			Port: int(port),
@@ -55,6 +57,8 @@ func gen_random_ip() string {
 	b3 := strconv.Itoa(random + 2)
 	b4 := strconv.Itoa(random + 3)
 	ip := b1 + "." + b2 + "." + b3 + "." + b4
+	random++
+	log.Printf("source address: %s", ip)
 	return ip
 }
 
@@ -94,13 +98,16 @@ func pkt(dst_ip string, port uint16) []byte {
 		Protocol: 6, // TCP
 		Dst:      net.IPv4(byte(d0), byte(d1), byte(d2), byte(d3)),
 		Src:      net.IPv4(byte(s0), byte(s1), byte(s2), byte(s3)),
+		Checksum: 0,
 		// ID, Src and Checksum will be set for us by the kernel
 	}
 	data := packet.Marshal()
 	packet.Checksum = Csum(data, to4byte(laddr), to4byte(raddr))
 	data = packet.Marshal()
-	h.TotalLen = h.TotalLen + len(data)
+	h.TotalLen = h.TotalLen + 20
 	out, err := h.Marshal()
+	h.Checksum = int(Checksum(out))
+	out, err = h.Marshal()
 	if err != nil {
 		log.Fatal(err)
 	}
