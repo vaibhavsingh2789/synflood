@@ -17,7 +17,7 @@ func main() {
 	var err error
 	fd, socerr := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP)
 	if socerr != nil {
-		log.Fatal("socket error:", socerr)
+		log.Fatal("socketfjf error:", socerr)
 		os.Exit(-1)
 	}
 	if len(os.Args) < 3 {
